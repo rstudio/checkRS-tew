@@ -34,6 +34,8 @@ rsa = "*"
 posix-ipc = "*"
 selenium-axe-python = "*"
 py = "*"
+databricks-sdk = "*"
+manageritm-client = ">=0.1.0"
 
 [pipenv]
 allow_prereleases = true
