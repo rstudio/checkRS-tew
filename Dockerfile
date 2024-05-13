@@ -22,6 +22,7 @@ RUN set -ex; \
         make \
         openssh-server \
         sudo \
+        unzip \
         vim \
         wget; \
     \
@@ -99,16 +100,41 @@ RUN set -ex; \
     echo "alias ls='ls --color=auto'" >> /etc/bash.bashrc; \
     echo "alias grep='grep --color=auto'" >> /etc/bash.bashrc;
 
-# Create user named "docker" with no password
-RUN useradd --create-home --shell /bin/bash docker \
+ARG PUID
+ENV PUID ${PUID:-1000}
+ARG PGID
+ENV PGID ${PGID:-${PUID}}
+
+# Create docker user with empty password (will have uid and gid 1000)
+RUN groupadd -g ${PGID} docker \
+    && useradd --create-home --shell /bin/bash --uid ${PUID} --gid ${PGID} docker \
     && passwd docker -d \
     && adduser docker sudo
 
 # Don't require a password for sudo
 RUN sed -i 's/^\(%sudo.*\)ALL$/\1NOPASSWD:ALL/' /etc/sudoers
 
-# set an entrypoint script that allows us to
-# dynamically change the uid/gid of the container's user
+# install 1Password cli
+# this has to be after the docker user is added because the docker user must have groupid of 1000
+RUN apt-get update && \
+    apt-get install -y gpg;
+RUN set -ex; \
+    sudo -s \
+        curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+        tee /etc/apt/sources.list.d/1password.list; \
+    mkdir -p /etc/debsig/policies/AC2D62742012EA22/; \
+    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+        tee /etc/debsig/policies/AC2D62742012EA22/1password.pol; \
+    mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22; \
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg; \
+    apt update; \
+    apt install -y 1password-cli; \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/*;
+
+# set an entrypoint script
 COPY entry_point.sh /opt/bin/
 ENTRYPOINT ["/opt/bin/entry_point.sh"]
 CMD ["/opt/bin/entry_point.sh"]

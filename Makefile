@@ -12,7 +12,7 @@ pyenv:
 
 
 build:
-	docker build -t ${ORG}/${PROJECT}:${TAG} .
+	docker build --build-arg PUID=${PUID:-1000} --build-arg PGID=${PGID:-1000} -t ${ORG}/${PROJECT}:${TAG} .
 
 run:
 	docker run --rm -it  ${ORG}/${PROJECT}:${TAG} bash
